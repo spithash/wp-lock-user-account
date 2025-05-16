@@ -1,3 +1,5 @@
+I forked this plugin because its original author stopped updating it. PR's are more than welcome!
+
 === Lock User Account ===
 Contributors: babatechs
 Tags: lock account, wordpress user accounts, lock user, users, block user, disable user
