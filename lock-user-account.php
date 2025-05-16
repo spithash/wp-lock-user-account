@@ -50,13 +50,19 @@ new Baba_Lock_User_Account();
 // Force logout of locked users even if they're already logged in
 add_action( 'init', 'baba_logout_locked_user' );
 function baba_logout_locked_user() {
+    // Check for any cookie that starts with "wp_loginasuser_"
+    foreach ( $_COOKIE as $cookie_name => $cookie_value ) {
+        if ( strpos( $cookie_name, 'wp_loginasuser_' ) === 0 ) {
+            // Admin is impersonating a user — skip lock check
+            return;
+        }
+    }
+
     if ( is_user_logged_in() ) {
         $user_id = get_current_user_id();
         $is_locked = get_user_meta( $user_id, 'baba_user_locked', true );
         if ( $is_locked === 'yes' ) {
             wp_logout();
-
-            // Optional: redirect to login page with message
             wp_redirect( home_url( '/?account_locked=1' ) );
             exit;
         }
