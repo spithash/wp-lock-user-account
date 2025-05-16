@@ -47,6 +47,31 @@ class Baba_Lock_User_Account{
 
 new Baba_Lock_User_Account();
 
+// Force logout of locked users even if they're already logged in
+add_action( 'init', 'baba_logout_locked_user' );
+function baba_logout_locked_user() {
+    if ( is_user_logged_in() ) {
+        $user_id = get_current_user_id();
+        $is_locked = get_user_meta( $user_id, 'baba_user_locked', true );
+        if ( $is_locked === 'yes' ) {
+            wp_logout();
+
+            // Optional: redirect to login page with message
+            wp_redirect( home_url( '/?account_locked=1' ) );
+            exit;
+        }
+    }
+}
+
+add_filter( 'login_message', 'baba_locked_account_login_message' );
+function baba_locked_account_login_message( $message ) {
+    if ( isset( $_GET['account_locked'] ) && $_GET['account_locked'] == 1 ) {
+        $error_message = get_option( 'baba_locked_message' );
+        $message .= '<div class="error"><strong>' . esc_html( $error_message ? $error_message : 'Your account is locked.' ) . '</strong></div>';
+    }
+    return $message;
+}
+
 // Prevent locked users from resetting their password
 add_filter( 'allow_password_reset', 'baba_disallow_locked_user_password_reset', 10, 2 );
 function baba_disallow_locked_user_password_reset( $allow, $user_id ) {
