@@ -47,6 +47,24 @@ class Baba_Lock_User_Account{
 
 new Baba_Lock_User_Account();
 
+// Prevent locked users from resetting their password
+add_filter( 'allow_password_reset', 'baba_disallow_locked_user_password_reset', 10, 2 );
+function baba_disallow_locked_user_password_reset( $allow, $user_id ) {
+    if ( 'yes' === get_user_meta( (int)$user_id, 'baba_user_locked', true ) ) {
+        return false; // Disallow password reset
+    }
+    return $allow;
+}
+
+// Optional: Show error message on reset form for locked users
+add_action( 'validate_password_reset', 'baba_show_locked_user_reset_error', 10, 2 );
+function baba_show_locked_user_reset_error( $errors, $user ) {
+    if ( is_a( $user, 'WP_User' ) && 'yes' === get_user_meta( $user->ID, 'baba_user_locked', true ) ) {
+        $error_message = get_option( 'baba_locked_message' );
+        $errors->add( 'locked', ( $error_message ) ? $error_message : __( 'Your account is locked and cannot reset password.', 'babatechs' ) );
+    }
+}
+
 //  Load user meta and settings files in only admin panel
 if( is_admin() ){
     //  Load user meta file
