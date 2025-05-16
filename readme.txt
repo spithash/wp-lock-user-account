@@ -17,7 +17,7 @@ It has feature to add custom lock message to show on login screen for locked acc
 
 == Installation ==
 
-1. Upload the plugin files to the `/wp-content/plugins/lock-user-account` directory, or install the plugin through the WordPress plugins screen directly.
+1. Upload the plugin files to the `/wp-content/plugins/wp-lock-user-account` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress
 3. Use the Settings->General screen to enter custom locked message
 
