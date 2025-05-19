@@ -95,36 +95,6 @@ function baba_show_locked_user_reset_error( $errors, $user ) {
         $errors->add( 'locked', ( $error_message ) ? $error_message : __( 'Your account is locked and cannot reset password.', 'babatechs' ) );
     }
 }
-// Block locked users from REST API access
-add_filter( 'rest_authentication_errors', function( $result ) {
-    if ( ! empty( $result ) ) {
-        return $result; // Return if other errors exist
-    }
-
-    $user = wp_get_current_user();
-
-    if ( $user && $user->exists() && 'yes' === get_user_meta( $user->ID, 'baba_user_locked', true ) ) {
-        return new WP_Error( 'rest_forbidden', __( 'Your account is locked.', 'babatechs' ), array( 'status' => 403 ) );
-    }
-
-    return $result;
-} );
-
-// Block locked users from XML-RPC authentication
-add_filter( 'xmlrpc_login_error', function( $error, $user ) {
-    if ( $user instanceof WP_User && 'yes' === get_user_meta( $user->ID, 'baba_user_locked', true ) ) {
-        return new WP_Error( 'forbidden', __( 'Your account is locked.', 'babatechs' ) );
-    }
-    return $error;
-}, 10, 2 );
-
-// Prevent application passwords for locked users
-add_filter( 'wp_is_application_passwords_available_for_user', function( $available, $user_id ) {
-    if ( 'yes' === get_user_meta( $user_id, 'baba_user_locked', true ) ) {
-        return false;
-    }
-    return $available;
-}, 10, 2 );
 
 //  Load user meta and settings files in only admin panel
 if( is_admin() ){
