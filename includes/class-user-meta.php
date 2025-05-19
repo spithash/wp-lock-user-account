@@ -65,54 +65,51 @@ class Baba_User_Meta{
         return ( 'yes' === $locked ) ? __( 'Locked', 'babatechs' ) : __( 'Not Locked', 'babatechs' );
     }
     
-    /**
-     * Processing Lock and Unlock users on request of bulk action
-     */
-    public function process_lock_action(){
-        
-        if ( isset( $_GET['_wpnonce'] ) && ! empty( $_GET['_wpnonce'] ) && strpos( wp_get_referer(), '/wp-admin/users.php' ) === 0 ){
-            $action  = filter_input( INPUT_GET, 'action', FILTER_SANITIZE_STRING );
-            
-            //  check the action is not supposed to catch
-            if( 'lock' !== $action && 'unlock' !== $action ){
-                return;
+      public function process_lock_action() {
+          // Only process POST requests
+          if ( 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
+              return;
+          }
+
+          // Check if nonce exists and verify it
+          if ( empty( $_POST['_wpnonce'] ) || ! check_admin_referer( 'bulk-users' ) ) {
+              return;
+        }
+
+        // Get the action from POST
+        $action = isset( $_POST['action'] ) ? sanitize_text_field( wp_unslash( $_POST['action'] ) ) : '';
+
+        if ( 'lock' !== $action && 'unlock' !== $action ) {
+            return;
+        }
+
+        // Capability check
+        if ( ! current_user_can( 'create_users' ) ) {
+            return;
+        }
+
+        // Validate and sanitize user IDs
+        $userids = [];
+        if ( isset( $_POST['users'] ) && is_array( $_POST['users'] ) && ! empty( $_POST['users'] ) ) {
+            foreach ( $_POST['users'] as $user_id ) {
+                $userids[] = (int) $user_id;
             }
-            
-            //  security check one
-            if ( ! check_admin_referer( 'bulk-users' ) ) {
-                return;
-            }
-            
-            //  security check two
-            if( ! current_user_can( 'create_users' ) ){
-                return;
-            }
-            
-            //  secure input for user ids
-            $userids = [];
-            if( isset( $_GET['users'] ) && is_array( $_GET['users'] ) && !empty( $_GET['users'] ) ){
-                foreach( $_GET['users'] as $user_id ){
-                    $userids[] = (int)$user_id;
+        } else {
+            return;
+        }
+
+        // Process lock/unlock accordingly
+        $current_user_id = get_current_user_id();
+        if ( 'lock' === $action ) {
+            foreach ( $userids as $userid ) {
+                if ( $userid === $current_user_id ) {
+                    continue; // Don't lock self
                 }
+                update_user_meta( $userid, 'baba_user_locked', 'yes' );
             }
-            else{
-                return;
-            }
-            
-            //  Process lock request
-            if( 'lock' === $action ){
-                $current_user_id = get_current_user_id();
-                foreach( $userids as $userid ){
-                    if( $userid == $current_user_id ) continue;
-                    update_user_meta( (int)$userid, sanitize_key( 'baba_user_locked' ), 'yes' );
-                }
-            }
-            
-            //  Process unlock request
-            elseif( 'unlock' === $action ){
-                foreach( $userids as $userid ){
-                    update_user_meta( (int)$userid, sanitize_key( 'baba_user_locked' ), '' );
-                }
+        } elseif ( 'unlock' === $action ) {
+            foreach ( $userids as $userid ) {
+                update_user_meta( $userid, 'baba_user_locked', '' );
             }
         }
     }
