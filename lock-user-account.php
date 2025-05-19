@@ -58,44 +58,27 @@ class Baba_Lock_User_Account {
 	 * @param null|WP_Error $result Current authentication result or null.
 	 * @return null|WP_Error
 	 */
-	public function rest_api_lock_check( $result ) {
-		if ( ! empty( $result ) ) {
-			return $result; // Authentication already failed or passed.
-		}
+  public function rest_api_lock_check( $result ) {
+    if ( ! empty( $result ) ) {
+      return $result; // Auth already processed.
+    }
 
-		$user_id = get_current_user_id();
-		if ( ! $user_id ) {
-			return $result; // Not authenticated yet.
-		}
+    // Only apply if the request attempts authentication
+    if ( ! isset( $_SERVER['PHP_AUTH_USER'] ) ) {
+      return $result; // No auth attempt — don't block public or tracking endpoints
+    }
 
-		if ( 'yes' === get_user_meta( $user_id, 'baba_user_locked', true ) ) {
-			return new WP_Error( 'rest_locked', __( 'Your account is locked.', 'babatechs' ), array( 'status' => 403 ) );
-		}
+    $user_id = get_current_user_id();
+    if ( ! $user_id ) {
+      return $result; // Still not authenticated
+    }
 
-		return $result;
-	}
+    if ( 'yes' === get_user_meta( $user_id, 'baba_user_locked', true ) ) {
+      return new WP_Error( 'rest_locked', __( 'Your account is locked.', 'babatechs' ), array( 'status' => 403 ) );
+    }
 
-	/**
-	 * Prevent locked users from authenticating via XML-RPC
-	 *
-	 * @param WP_Error|null $error Existing error or null.
-	 * @param WP_User|null $user Authenticated user or null.
-	 * @param string $password Password provided.
-	 * @return WP_Error|null
-	 */
-	public function xmlrpc_lock_check( $error, $user, $password ) {
-		if ( is_wp_error( $error ) ) {
-			return $error;
-		}
-
-		if ( $user && is_a( $user, 'WP_User' ) ) {
-			if ( 'yes' === get_user_meta( $user->ID, 'baba_user_locked', true ) ) {
-				return new WP_Error( 'xmlrpc_locked', __( 'Your account is locked.', 'babatechs' ) );
-			}
-		}
-
-		return $error;
-	}
+    return $result;
+  }
 
 	/**
 	 * Prevent locked users from authenticating using Application Passwords
