@@ -12,110 +12,113 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-class Baba_User_Meta{
-    
-    public function __construct() {
-        //  Add filter to add another action in users' bulk action dropdown
-        add_filter( 'bulk_actions-users', array( $this, 'register_bulk_action' ) );
-        
-        //  Add filter to add another column header in users' listing
-        add_filter( 'manage_users_columns' , array( $this, 'register_column_header' ) );
-        
-        //  Add filter to show output of custom column in users' listing
-        add_filter( 'manage_users_custom_column', array( $this, 'output_column' ), 10, 3 );
-        
-        //  Add action to process bulk action request
-        add_action( 'admin_init', array( $this, 'process_lock_action' ) );
-    }
-    
-    /**
-     * Add another action in bulk action drop down list on users listing screen
-     * 
-     * @param array $actions    Array of users bulk actions
-     * @return array            Array with addition of Lock action
-     */
-    public function register_bulk_action( $actions ){
-        $actions['lock'] = esc_html__( 'Lock', 'babatechs' );
-        $actions['unlock'] = esc_html__( 'Unlock', 'babatechs' );
-        return $actions;
-    }
-    
-    /**
-     * Add another column header in listing of users
-     * 
-     * @param array $columns    Array of columns headers
-     * @return array            Array with adition of Locked column
-     */
-    public function register_column_header( $columns ){
-        return array_merge( $columns, 
-              array( 'locked' => esc_html__( 'Locked', 'babatechs' ) ) );
-    }
-    
-    /**
-     * Displaying status of user's account in list of users for Locked column
-     * 
-     * @param string $output        Output value of custom column
-     * @param string $column_name   Column name
-     * @param int $user_id          ID of user
-     * @return string               Output value of custom column
-     */
-    public function output_column( $output, $column_name, $user_id ){
-        if( 'locked' !== $column_name ) return $output;
-        $locked = get_user_meta( $user_id, sanitize_key( 'baba_user_locked' ), true );
-        return ( 'yes' === $locked ) ? __( 'Locked', 'babatechs' ) : __( 'Not Locked', 'babatechs' );
-    }
-    
-    /**
-     * Processing Lock and Unlock users on request of bulk action
-     */
-    public function process_lock_action(){
-        
-        if ( isset( $_GET['_wpnonce'] ) && ! empty( $_GET['_wpnonce'] ) && strpos( wp_get_referer(), '/wp-admin/users.php' ) === 0 ){
-            $action  = filter_input( INPUT_GET, 'action', FILTER_SANITIZE_STRING );
-            
-            //  check the action is not supposed to catch
-            if( 'lock' !== $action && 'unlock' !== $action ){
-                return;
-            }
-            
-            //  security check one
-            if ( ! check_admin_referer( 'bulk-users' ) ) {
-                return;
-            }
-            
-            //  security check two
-            if( ! current_user_can( 'create_users' ) ){
-                return;
-            }
-            
-            //  secure input for user ids
-            $userids = [];
-            if( isset( $_GET['users'] ) && is_array( $_GET['users'] ) && !empty( $_GET['users'] ) ){
-                foreach( $_GET['users'] as $user_id ){
-                    $userids[] = (int)$user_id;
-                }
-            }
-            else{
-                return;
-            }
-            
-            //  Process lock request
-            if( 'lock' === $action ){
-                $current_user_id = get_current_user_id();
-                foreach( $userids as $userid ){
-                    if( $userid == $current_user_id ) continue;
-                    update_user_meta( (int)$userid, sanitize_key( 'baba_user_locked' ), 'yes' );
-                }
-            }
-            
-            //  Process unlock request
-            elseif( 'unlock' === $action ){
-                foreach( $userids as $userid ){
-                    update_user_meta( (int)$userid, sanitize_key( 'baba_user_locked' ), '' );
-                }
-            }
-        }
-    }
+class Baba_User_Meta {
+
+	public function __construct() {
+		// Add filters and actions
+		add_filter( 'bulk_actions-users', array( $this, 'register_bulk_action' ) );
+		add_filter( 'manage_users_columns', array( $this, 'register_column_header' ) );
+		add_filter( 'manage_users_custom_column', array( $this, 'output_column' ), 10, 3 );
+		add_action( 'admin_init', array( $this, 'process_lock_action' ) );
+		add_action( 'admin_notices', array( $this, 'lock_action_notice' ) );
+
+		// Optional: ensure nonce is output
+		add_action( 'admin_footer-users.php', function () {
+			if ( current_user_can( 'edit_users' ) ) {
+				wp_nonce_field( 'bulk-users' );
+			}
+		} );
+	}
+
+	/**
+	 * Register bulk actions for locking/unlocking users
+	 */
+	public function register_bulk_action( $actions ) {
+		$actions['lock']   = esc_html__( 'Lock', 'babatechs' );
+		$actions['unlock'] = esc_html__( 'Unlock', 'babatechs' );
+		return $actions;
+	}
+
+	/**
+	 * Add 'Locked' column to users table
+	 */
+	public function register_column_header( $columns ) {
+		$columns['locked'] = esc_html__( 'Locked', 'babatechs' );
+		return $columns;
+	}
+
+	/**
+	 * Output lock status in users table
+	 */
+	public function output_column( $output, $column_name, $user_id ) {
+		if ( 'locked' !== $column_name ) return $output;
+		$locked = get_user_meta( $user_id, 'baba_user_locked', true );
+		return ( 'yes' === $locked ) ? esc_html__( 'Locked', 'babatechs' ) : esc_html__( 'Not Locked', 'babatechs' );
+	}
+
+	/**
+	 * Process lock/unlock bulk actions securely
+	 */
+	public function process_lock_action() {
+		if ( ! isset( $_REQUEST['action'] ) && ! isset( $_REQUEST['action2'] ) ) {
+			return;
+		}
+
+		$action = ( $_REQUEST['action'] !== '-1' ) ? $_REQUEST['action'] : $_REQUEST['action2'];
+
+		if ( 'lock' !== $action && 'unlock' !== $action ) {
+			return;
+		}
+
+		if ( ! isset( $_REQUEST['_wpnonce'] ) || ! check_admin_referer( 'bulk-users' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'babatechs' ) );
+		}
+
+		if ( ! current_user_can( 'edit_users' ) ) {
+			wp_die( esc_html__( 'You are not allowed to perform this action.', 'babatechs' ) );
+		}
+
+		if ( empty( $_REQUEST['users'] ) || ! is_array( $_REQUEST['users'] ) ) {
+			return;
+		}
+
+		$user_ids = array_map( 'intval', $_REQUEST['users'] );
+		$current_user_id = get_current_user_id();
+
+		if ( 'lock' === $action ) {
+			foreach ( $user_ids as $user_id ) {
+				if ( $user_id === $current_user_id ) {
+					continue; // Don't lock yourself
+				}
+				update_user_meta( $user_id, 'baba_user_locked', 'yes' );
+			}
+		} elseif ( 'unlock' === $action ) {
+			foreach ( $user_ids as $user_id ) {
+				update_user_meta( $user_id, 'baba_user_locked', '' );
+			}
+		}
+
+		// Redirect with success message
+		$redirect_url = remove_query_arg( array( 'action', 'action2', 'users', '_wpnonce' ), wp_get_referer() );
+		$redirect_url = add_query_arg( 'lock_action_done', $action, $redirect_url );
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	/**
+	 * Show success notice after bulk lock/unlock
+	 */
+	public function lock_action_notice() {
+		if ( ! isset( $_GET['lock_action_done'] ) ) return;
+
+		$action = sanitize_text_field( $_GET['lock_action_done'] );
+		if ( 'lock' === $action ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Selected users have been locked.', 'babatechs' ) . '</p></div>';
+		} elseif ( 'unlock' === $action ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Selected users have been unlocked.', 'babatechs' ) . '</p></div>';
+		}
+	}
 }
 
 new Baba_User_Meta();
+
